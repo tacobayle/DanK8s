@@ -54,7 +54,7 @@ variable "controller" {
 variable "jump" {
   type = map
   default = {
-    name = "jump"
+    name = "jump-dan"
     cpu = 2
     memory = 4096
     disk = 20
@@ -64,6 +64,8 @@ variable "jump" {
     template_name = "ubuntu-focal-20.04-cloudimg-template"
     avisdkVersion = "21.1.1"
     username = "ubuntu"
+    netplan_file_path = "/etc/netplan/50-cloud-init.yaml"
+    ip_vip = "100.64.133.252"
   }
 }
 
