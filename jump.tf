@@ -9,6 +9,10 @@ data "template_file" "jumpbox_userdata" {
     vsphere_server = var.vsphere_server
     username = var.jump["username"]
     privateKey = var.jump["private_key_path"]
+    dns_servers = var.jump.dns_servers
+    ip_mgmt = var.jump.ip_mgmt
+    netplan_file_path = var.jump.netplan_file_path
+    gw = var.jump.gw
   }
 }
 
@@ -58,7 +62,7 @@ resource "vsphere_virtual_machine" "jump" {
  }
 
   connection {
-   host        = self.default_ip_address
+   host        = split("/", var.jump.ip_mgmt)[0]
    type        = "ssh"
    agent       = false
    user        = var.jump.username
@@ -83,6 +87,7 @@ resource "vsphere_virtual_machine" "jump" {
   }
 }
 
+
 resource "null_resource" "add_nic_to_jump" {
   depends_on = [null_resource.ansible_avi]
 
@@ -103,7 +108,7 @@ resource "null_resource" "update_ip_to_jump" {
   depends_on = [null_resource.add_nic_to_jump]
 
   connection {
-    host        = vsphere_virtual_machine.jump.default_ip_address
+    host        = split("/", var.jump.ip_mgmt)[0]
     type        = "ssh"
     agent       = false
     user        = var.jump.username
@@ -120,7 +125,12 @@ resource "null_resource" "update_ip_to_jump" {
       "echo \"network:\" | sudo tee ${var.jump.netplan_file_path}",
       "echo \"    ethernets:\" | sudo tee -a ${var.jump.netplan_file_path}",
       "echo \"        $ifaceFirstName:\" | sudo tee -a ${var.jump.netplan_file_path}",
-      "echo \"            dhcp4: true\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"            dhcp4: false\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"            addresses: [${var.jump.ip_mgmt}]\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"            gateway4: ${var.jump.gw}\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"            match:\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"                macaddress: $macFirst\" | sudo tee -a ${var.jump.netplan_file_path}",
+      "echo \"            set-name: $ifaceFirstName\" | sudo tee -a ${var.jump.netplan_file_path}",
       "echo \"        $ifaceLastName:\" | sudo tee -a ${var.jump.netplan_file_path}",
       "echo \"            dhcp4: false\" | sudo tee -a ${var.jump.netplan_file_path}",
       "echo \"            addresses: [${var.jump.ip_vip}/${split("/", var.vmw.network_vip.cidr)[1]}]\" | sudo tee -a ${var.jump.netplan_file_path}",
@@ -134,10 +144,11 @@ resource "null_resource" "update_ip_to_jump" {
     ]
   }
 
-//    provisioner "remote-exec" {
-//      inline = [
-//        "ifaceLastName=`ip -o link show | awk -F': ' '{print $2}' | tail -1`",
-//        "sudo ip addr add ${var.jump.ip_vip}/${split("/", var.vmw.network_vip.cidr)[1]} dev $ifaceLastName"
-//      ]
-//    }
+//  provisioner "remote-exec" {
+//    inline = [
+//      "ifaceLastName=`ip -o link show | awk -F': ' '{print $2}' | tail -1`",
+//      "sudo ip addr add ${var.jump.ip_vip}/${split("/", var.vmw.network_vip.cidr)[1]} dev $ifaceLastName"
+//    ]
+//  }
+
 }
